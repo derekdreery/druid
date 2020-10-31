@@ -70,14 +70,17 @@ fn ui_builder() -> impl Widget<AppData> {
 
     // Build a simple list
     lists.add_flex_child(
-        Scroll::new(List::vertical(|| {
-            Label::new(|item: &u32, _env: &_| format!("List item #{}", item))
-                .align_vertical(UnitPoint::LEFT)
-                .padding(10.0)
-                .expand()
-                .height(50.0)
-                .background(Color::rgb(0.5, 0.5, 0.5))
-        }))
+        Scroll::new(
+            List::vertical(|| {
+                Label::new(|item: &u32, _env: &_| format!("List item #{}", item))
+                    .align_vertical(UnitPoint::LEFT)
+                    .padding(10.0)
+                    .expand()
+                    .height(50.0)
+                    .background(Color::rgb(0.5, 0.5, 0.5))
+            })
+            .with_spacing(5.),
+        )
         .vertical()
         .lens(AppData::left),
         1.0,
@@ -126,6 +129,7 @@ fn ui_builder() -> impl Widget<AppData> {
     root.add_child(
         List::horizontal(|| Label::new(|pos: &u32, _env: &_| format!("List item #{}", pos)))
             .with_flex(true)
+            .with_spacing(10.)
             .lens(AppData::right),
     );
 

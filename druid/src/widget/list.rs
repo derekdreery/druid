@@ -33,6 +33,7 @@ pub struct List<T> {
     children: Vec<WidgetPod<T, Box<dyn Widget<T>>>>,
     axis: Axis,
     flex: bool,
+    spacing: f64,
 }
 
 impl<T: Data> List<T> {
@@ -44,6 +45,7 @@ impl<T: Data> List<T> {
             children: Vec::new(),
             axis,
             flex: false,
+            spacing: 0.0,
         }
     }
 
@@ -66,6 +68,18 @@ impl<T: Data> List<T> {
     /// If set to `true`, each element will be given an equal share of the space available.
     pub fn set_flex(&mut self, flex: bool) -> &mut Self {
         self.flex = flex;
+        self
+    }
+
+    /// If non-zero, then spacing will be added between elements.
+    pub fn with_spacing(mut self, spacing: f64) -> Self {
+        self.spacing = spacing;
+        self
+    }
+
+    /// If non-zero, then spacing will be added between elements.
+    pub fn set_spacing(&mut self, spacing: f64) -> &mut Self {
+        self.spacing = spacing;
         self
     }
 
@@ -261,17 +275,23 @@ impl<C: Data, T: ListIter<C>> Widget<T> for List<C> {
     }
 
     fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &T, env: &Env) -> Size {
-        let axis = self.axis; // keep the borrow checker happy
+        // keep the borrow checker happy
+        let axis = self.axis;
+        let spacing = self.spacing;
+
         let mut minor = axis.minor(bc.min());
         let mut major = 0.0;
 
         let mut paint_rect = Rect::ZERO;
         let mut children = self.children.iter_mut();
 
-        // TODO quantize to whole pixels
+        // TODO quantize to whole pixels (do we need to)
         // major constraint
         let mc = if self.flex {
-            let div = axis.major(bc.max()) / (data.data_len() as f64);
+            let len = data.data_len() as f64;
+            // We need to take spacing into account when working out size, but we need to multiply
+            // by `(n - 1) / n` to fix the fence/fencepost problem.
+            let div = (axis.major(bc.max()) - spacing * (len - 1.)) / len;
             (div, div)
         } else {
             (0., f64::INFINITY)
@@ -300,8 +320,11 @@ impl<C: Data, T: ListIter<C>> Widget<T> for List<C> {
             child.set_layout_rect(ctx, child_data, env, rect);
             paint_rect = paint_rect.union(child.paint_rect());
             minor = minor.max(axis.minor(child_size));
-            major += axis.major(child_size);
+            major += axis.major(child_size) + spacing;
         });
+
+        // Correct for overshoot
+        major -= spacing;
 
         // TODO I don't understand this logic. If we end up constraining here then our layout for
         // the child elements is broken, no?
