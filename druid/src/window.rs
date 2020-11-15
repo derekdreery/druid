@@ -221,6 +221,7 @@ impl<T: Data> Window<T> {
                 widget_state: &mut widget_state,
                 is_handled: false,
                 is_root: true,
+                depth: 0,
             };
 
             self.root.event(&mut ctx, &event, data, env);

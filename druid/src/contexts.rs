@@ -67,6 +67,7 @@ pub struct EventCtx<'a, 'b> {
     pub(crate) cursor: &'a mut Option<Cursor>,
     pub(crate) is_handled: bool,
     pub(crate) is_root: bool,
+    pub(crate) depth: usize,
 }
 
 /// A mutable context provided to the [`lifecycle`] method on widgets.
@@ -215,6 +216,10 @@ impl_context_method!(
         /// [`set_active`]: struct.EventCtx.html#method.set_active
         pub fn is_active(&self) -> bool {
             self.widget_state.is_active
+        }
+
+        pub fn has_active(&self) -> bool {
+            self.widget_state.has_active
         }
 
         /// The focus status of a widget.

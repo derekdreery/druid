@@ -76,7 +76,7 @@ fn build_widget() -> impl Widget<DemoState> {
     );
     col.add_spacer(10.);
     col.add_child(
-        Button::new("Add label").on_click(|_, data: &mut DemoState, _| {
+        Button::new("Add switch").on_click(|_, data: &mut DemoState, _| {
             data.values_list.push_back(false);
         }),
     );

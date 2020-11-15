@@ -103,7 +103,7 @@ pub(crate) struct WidgetState {
     pub(crate) needs_layout: bool,
 
     /// Any descendant is active.
-    has_active: bool,
+    pub(crate) has_active: bool,
 
     /// In the focused path, starting from window and ending at the focused widget.
     /// Descendants of the focused widget are not in the focused path.
@@ -365,6 +365,19 @@ impl<T, W: Widget<T>> WidgetPod<T, W> {
             }
             return true;
         }
+        // include active in debug_widget_id
+        if env.get(Env::DEBUG_WIDGET_ID) {
+            let has_active = child_state.has_active;
+            let mut child_ctx = LifeCycleCtx {
+                state,
+                widget_state: child_state,
+            };
+            if has_active {
+                child_ctx.request_paint();
+                return true;
+            }
+        }
+
         false
     }
 }
@@ -386,6 +399,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
         if env.get(Env::DEBUG_WIDGET_ID) {
             self.make_widget_id_layout_if_needed(self.state.id, ctx, env);
         }
+        let has_active = ctx.has_active();
 
         let mut inner_ctx = PaintCtx {
             render_ctx: ctx.render_ctx,
@@ -397,7 +411,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
         };
         self.inner.paint(&mut inner_ctx, data, env);
 
-        let debug_ids = inner_ctx.is_hot() && env.get(Env::DEBUG_WIDGET_ID);
+        let debug_ids = (inner_ctx.is_hot() || has_active) && env.get(Env::DEBUG_WIDGET_ID);
         if debug_ids {
             // this also draws layout bounds
             self.debug_paint_widget_ids(&mut inner_ctx, env);
@@ -488,7 +502,9 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
         let rect = ctx.size().to_rect().inset(BORDER_WIDTH / -2.0);
         let id = self.id().to_raw();
         let color = env.get_debug_color(id);
-        ctx.stroke(rect, &color, BORDER_WIDTH);
+        ctx.paint_with_z_index(ctx.depth(), move |ctx| {
+            ctx.stroke(rect, &color, BORDER_WIDTH);
+        });
     }
 
     /// Compute layout of a widget.
@@ -550,6 +566,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
             cursor: parent_ctx.cursor,
             is_handled: false,
             is_root: false,
+            depth: parent_ctx.depth + 1,
         };
         fun(&mut self.inner, &mut ctx);
         parent_ctx.widget_state.merge_up(&mut self.state);
@@ -689,6 +706,12 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                     data,
                     env,
                 );
+                if ctx.depth >= 2 {
+                    for _ in 0..ctx.depth - 2 {
+                        //print!("  ");
+                    }
+                    //println!("{:?} {:?}", event, had_active);
+                }
                 // MouseMove is recursed even if the widget is not active and not hot,
                 // but was hot previously. This is to allow the widget to respond to the movement,
                 // e.g. drag functionality where the widget wants to follow the mouse.
@@ -740,6 +763,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
                 widget_state: &mut self.state,
                 is_handled: false,
                 is_root: false,
+                depth: ctx.depth + 1,
             };
             let inner_event = modified_event.as_ref().unwrap_or(event);
             inner_ctx.widget_state.has_active = false;
