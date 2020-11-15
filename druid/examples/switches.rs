@@ -13,15 +13,17 @@
 // limitations under the License.
 
 use druid::widget::{
-    Checkbox, Flex, Label, LensWrap, MainAxisAlignment, Padding, Parse, Stepper, Switch, TextBox,
-    WidgetExt,
+    Button, Checkbox, Flex, Label, LensWrap, List, MainAxisAlignment, Padding, Parse, Scroll,
+    Stepper, Switch, TextBox, WidgetExt,
 };
 use druid::{AppLauncher, Data, Lens, LensExt, LocalizedString, Widget, WindowDesc};
+use im::{vector, Vector};
 
 #[derive(Clone, Data, Lens)]
 struct DemoState {
     value: bool,
     stepper_value: f64,
+    values_list: Vector<bool>,
 }
 
 fn build_widget() -> impl Widget<DemoState> {
@@ -63,7 +65,22 @@ fn build_widget() -> impl Widget<DemoState> {
     col.add_child(Padding::new(5.0, row));
     col.add_child(Padding::new(5.0, textbox_row));
     col.add_child(Padding::new(5.0, label_row));
-    col.center()
+    col.add_child(
+        Scroll::new(
+            List::new(|| Switch::new())
+                .with_spacing(10.)
+                .horizontal()
+                .lens(DemoState::values_list),
+        )
+        .horizontal(),
+    );
+    col.add_spacer(10.);
+    col.add_child(
+        Button::new("Add label").on_click(|_, data: &mut DemoState, _| {
+            data.values_list.push_back(false);
+        }),
+    );
+    col.padding(10.).center()
 }
 
 pub fn main() {
@@ -74,6 +91,9 @@ pub fn main() {
         .launch(DemoState {
             value: true,
             stepper_value: 1.0,
+            values_list: vector![
+                false, false, false, false, false, false, false, false, false, false
+            ],
         })
         .expect("launch failed");
 }

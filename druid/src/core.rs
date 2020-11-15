@@ -538,7 +538,7 @@ impl<T: Data, W: Widget<T>> WidgetPod<T, W> {
         size
     }
 
-    /// Execute the closure with this widgets `EventCtx`.
+    /// Execute the closure with this widget's `EventCtx`.
     #[cfg(feature = "crochet")]
     pub fn with_event_context<F>(&mut self, parent_ctx: &mut EventCtx, mut fun: F)
     where

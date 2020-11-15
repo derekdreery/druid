@@ -104,6 +104,7 @@ impl<T: Data, W: Widget<T>> Widget<T> for Scroll<T, W> {
         self.clip.with_port(|port| {
             scroll_component.event(port, ctx, event, env);
         });
+
         if !ctx.is_handled() {
             self.clip.event(ctx, event, data, env);
         }
