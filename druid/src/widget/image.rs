@@ -16,6 +16,7 @@
 //! Please consider using SVG and the SVG widget as it scales much better.
 
 use druid_shell::ImageBuf;
+use std::sync::Arc;
 
 use crate::{
     piet::{InterpolationMode, PietImage},
@@ -79,7 +80,6 @@ use crate::{
 /// [`FillStrat`]: ../widget/enum.FillStrat.html
 /// [`InterpolationMode`]: ../piet/enum.InterpolationMode.html
 pub struct Image {
-    image_data: ImageBuf,
     paint_data: Option<PietImage>,
     fill: FillStrat,
     interpolation: InterpolationMode,
@@ -95,9 +95,8 @@ impl Image {
     ///
     /// [`FillStrat::Fill`]: ../widget/enum.FillStrat.html#variant.Fill
     /// [`InterpolationMode::Bilinear`]: ../piet/enum.InterpolationMode.html#variant.Bilinear
-    pub fn new(image_data: ImageBuf) -> Self {
+    pub fn new() -> Self {
         Image {
-            image_data,
             paint_data: None,
             fill: FillStrat::default(),
             interpolation: InterpolationMode::Bilinear,
@@ -127,26 +126,25 @@ impl Image {
         self.interpolation = interpolation;
         self.paint_data = None;
     }
-
-    /// Set new `ImageBuf`.
-    pub fn set_image_data(&mut self, image_data: ImageBuf) {
-        self.image_data = image_data;
-        self.paint_data = None;
-    }
 }
 
-impl<T: Data> Widget<T> for Image {
-    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
+impl Widget<Arc<ImageBuf>> for Image {
+    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut Arc<ImageBuf>, _env: &Env) {}
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &T, _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &Arc<ImageBuf>, _env: &Env) {}
 
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
+    fn update(&mut self, _ctx: &mut UpdateCtx, old_data: &Arc<ImageBuf>, data: &Arc<ImageBuf>, _env: &Env) {
+        if !old_data.same(data) {
+            // invalidate the cached PietImage    
+            self.paint_data = None;
+        }
+    }
 
     fn layout(
         &mut self,
         _layout_ctx: &mut LayoutCtx,
         bc: &BoxConstraints,
-        _data: &T,
+        data: &Arc<ImageBuf>,
         _env: &Env,
     ) -> Size {
         bc.debug_check("Image");
@@ -155,7 +153,7 @@ impl<T: Data> Widget<T> for Image {
         // in the size exactly. If it is unconstrained by both width and height take the size of
         // the image.
         let max = bc.max();
-        let image_size = self.image_data.size();
+        let image_size = data.size();
         if bc.is_width_bounded() && !bc.is_height_bounded() {
             let ratio = max.width / image_size.width;
             Size::new(max.width, ratio * image_size.height)
@@ -163,12 +161,12 @@ impl<T: Data> Widget<T> for Image {
             let ratio = max.height / image_size.height;
             Size::new(ratio * image_size.width, max.height)
         } else {
-            bc.constrain(self.image_data.size())
+            bc.constrain(data.size())
         }
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &T, _env: &Env) {
-        let offset_matrix = self.fill.affine_to_fill(ctx.size(), self.image_data.size());
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &Arc<ImageBuf>, _env: &Env) {
+        let offset_matrix = self.fill.affine_to_fill(ctx.size(), data.size());
 
         // The ImageData's to_piet function does not clip to the image's size
         // CairoRenderContext is very like druids but with some extra goodies like clip
@@ -179,14 +177,13 @@ impl<T: Data> Widget<T> for Image {
 
         ctx.with_save(|ctx| {
             let piet_image = {
-                let image_data = &self.image_data;
                 self.paint_data
-                    .get_or_insert_with(|| image_data.to_piet_image(ctx.render_ctx))
+                    .get_or_insert_with(|| data.to_piet_image(ctx.render_ctx))
             };
             ctx.transform(offset_matrix);
             ctx.draw_image(
                 piet_image,
-                self.image_data.size().to_rect(),
+                data.size().to_rect(),
                 self.interpolation,
             );
         });
